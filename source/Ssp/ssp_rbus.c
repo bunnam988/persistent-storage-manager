@@ -26,8 +26,6 @@
 #include "ssp_global.h"
 #include "safec_lib_common.h"
 
-extern  PPSM_SYS_REGISTRY_OBJECT  pPsmSysRegistry;
-
 typedef enum _rbus_legacy_support
 {
     RBUS_LEGACY_STRING = 0,    /**< Null terminated string                                           */
@@ -155,11 +153,6 @@ static int setParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     rbusValueType_t type;
     int param_size = 0;
     char *parameterName, *parameterValue = NULL;
-    if ( pPsmSysRegistry == NULL )
-    {
-        CcspTraceError(("%s - pPsmSysRegistry is NULL\n",__func__));
-        return RBUS_ERROR_BUS_ERROR;
-    }
 
     prop = rbusObject_GetProperties(inParams);
     while(prop)
@@ -240,11 +233,6 @@ static int getParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     rbusValueType_t type;
     parameterValStruct_t **val = 0;
 
-    if ( pPsmSysRegistry == NULL )
-    {
-        CcspTraceError(("%s - pPsmSysRegistry is NULL\n",__func__));
-        return RBUS_ERROR_BUS_ERROR;
-    }
     /* Get inut parameters size*/
     prop = rbusObject_GetProperties(inParams);
     while(prop)
@@ -331,11 +319,6 @@ static int getParameterNames_rbus(rbusObject_t inParams, rbusObject_t outParams)
     bool nextLevel = 0;
     parameterInfoStruct_t **val = 0;
     rbusProperty_t prop, out_prop;
-    if ( pPsmSysRegistry == NULL )
-    {
-        CcspTraceError(("%s - pPsmSysRegistry is NULL\n",__func__));
-        return RBUS_ERROR_BUS_ERROR;
-    }
     /* Get parameter name */
     parameterName = NULL;
     prop = rbusObject_GetProperties(inParams);
@@ -377,11 +360,6 @@ static int delParameterValues_rbus(rbusObject_t inParams, rbusObject_t outParams
     rbusProperty_t prop;
     int i = 0;
     int param_size = 0;
-    if ( pPsmSysRegistry == NULL )
-    {
-        CcspTraceError(("%s - pPsmSysRegistry is NULL\n",__func__));
-        return RBUS_ERROR_BUS_ERROR;
-    }
 
     prop = rbusObject_GetProperties(inParams);
     while(prop)

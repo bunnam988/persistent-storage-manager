@@ -48,7 +48,6 @@
 #include "ansc_tso_interface.h"
 
 extern  void *bus_handle;
-extern  PPSM_SYS_REGISTRY_OBJECT  pPsmSysRegistry;
 extern  char  g_Subsystem[32];
 extern  char* pComponentName;
 extern  BOOL  g_bLogEnable;
@@ -366,18 +365,6 @@ ANSC_STATUS getCommParam(
                       return ANSC_STATUS_FAILURE;
                 }
 
-                if ( pPsmSysRegistry && (pPsmSysRegistry->FileSyncRefCount > 0) )
-		{
-		    rc = strcpy_s(pParameterValue->val->parameterValue, MALLOC_EIGHT_BYTES, "true");
-		    if(rc != EOK)
-		    {
-			ERR_CHK(rc);
-                        free_commParam_pointers(pParameterValue);
-			return ANSC_STATUS_FAILURE;
-		    }
-		}
-		else
-		{
 		    rc = strcpy_s(pParameterValue->val->parameterValue, MALLOC_EIGHT_BYTES, "false");
 		    if(rc != EOK)
 		    {
@@ -385,7 +372,6 @@ ANSC_STATUS getCommParam(
                         free_commParam_pointers(pParameterValue);
 			return ANSC_STATUS_FAILURE;
 		    }
-		}
 	     }
 	     else if(index == PSM_LOGGING_ENABLE)
 	     {

@@ -66,7 +66,6 @@
 #define DEBUG_INI_NAME "/etc/debug.ini"
 int GetLogInfo(ANSC_HANDLE bus_handle, char *Subsytem, char *pParameterName);
 BOOL                                bEngaged          = FALSE;
-PPSM_SYS_REGISTRY_OBJECT            pPsmSysRegistry   = (PPSM_SYS_REGISTRY_OBJECT)NULL;
 void                               *bus_handle        = NULL;
 char                                g_Subsystem[32]   = {0};
 BOOL                                g_bLogEnable      = FALSE;
@@ -191,12 +190,6 @@ void sig_handler(int sig)
     	CcspTraceInfo(("SIGUSR2 received!\n"));
         if ( bEngaged )
         {
-            if ( pPsmSysRegistry )
-            {
-                pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-                pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-            }
-
             bEngaged = FALSE;
 
     	    CcspTraceError(("Exit!\n"));
@@ -219,11 +212,8 @@ void sig_handler(int sig)
 	}
     else if (sig == SIGTERM ) {
         /* When PSM is terminated, make sure to save the config to flash before exiting so settings aren't lost */
-        if ( pPsmSysRegistry )
-        {
-            pPsmSysRegistry->SaveConfigToFlash(pPsmSysRegistry);
-        }
-	exit(0);
+        CcspTraceInfo(("SIGTERM make sure to save the config to flash before exiting so settings aren't lost!\n"));
+		exit(0);
     }
     else {
     	/* get stack trace first */
@@ -425,12 +415,6 @@ int main(int argc, char* argv[])
 
     if ( bEngaged )
     {
-        if ( pPsmSysRegistry )
-        {
-            pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-            pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-        }
-
         bEngaged = FALSE;
     }
 
@@ -457,50 +441,26 @@ int  cmd_dispatch(int  command)
 				{
 					CcspTraceInfo((" inside case 'e' !bEngaged\n"));
 
-					pPsmSysRegistry = (PPSM_SYS_REGISTRY_OBJECT)PsmCreateSysRegistry(NULL, NULL, NULL);
-					if (pPsmSysRegistry)
+					/* Start buses directly (no PsmSysRegistry) */
+					ret = PsmDbusInit();
+					if (ret != 0)
 					{
-						CcspTraceInfo((" inside case 'e' !bEngaged-pPsmSysRegistry\n"));
-
-				#ifdef USE_PLATFORM_SPECIFIC_HAL
-						cfm_ifo.InterfaceId   = PSM_CFM_INTERFACE_ID;
-						cfm_ifo.hOwnerContext = (ANSC_HANDLE)pPsmSysRegistry;
-						cfm_ifo.Size          = sizeof(PSM_CFM_INTERFACE);
-
-						cfm_ifo.ReadCurConfig = ssp_CfmReadCurConfig;
-						cfm_ifo.ReadDefConfig = ssp_CfmReadDefConfig;
-						cfm_ifo.SaveCurConfig = ssp_CfmSaveCurConfig;
-						cfm_ifo.UpdateConfigs = ssp_CfmUpdateConfigs;
-
-						if (pPsmSysRegistry->hPsmCfmIf)
-						{
-							AnscFreeMemory(pPsmSysRegistry->hPsmCfmIf);
-						}
-						pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)&cfm_ifo;
-				#endif /* USE_PLATFORM_SPECIFIC_HAL */
-
-						pPsmSysRegistry->Engage((ANSC_HANDLE)pPsmSysRegistry);
-
-						ret = PsmDbusInit();
-						if (ret != 0)
-						{
-							return -1;
-						}
-
-						PsmRbusInit();
-
-						bEngaged = TRUE;
-
-						CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM started ...\n"));
-
-				#if !defined(INTEL_PUMA7) && !defined(_COSA_BCM_MIPS_) && !defined(_COSA_BCM_ARM_)  && !defined(_COSA_QCA_ARM_)
-						v_secure_system("sysevent set bring-lan up");
-				#endif
+						return -1;
 					}
-					else
-					{
-						CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : Create PSM Failed ...\n"));
-					}
+
+					PsmRbusInit();
+
+					bEngaged = TRUE;
+
+					CcspTraceWarning(("RDKB_SYSTEM_BOOT_UP_LOG : PSM started ...\n"));
+
+					#if !defined(INTEL_PUMA7) && !defined(_COSA_BCM_MIPS_) && !defined(_COSA_BCM_ARM_)  && !defined(_COSA_QCA_ARM_)
+							v_secure_system("sysevent set bring-lan up");
+					#endif
+				}
+				else
+				{
+					CcspTraceError(("RDKB_SYSTEM_BOOT_UP_LOG : Create PSM Failed ...\n"));
 				}
 
                 break;
@@ -516,20 +476,6 @@ int  cmd_dispatch(int  command)
                     {
                         CCSP_Message_Bus_Exit(bus_handle);
                     }
-
-                    if ( pPsmSysRegistry )
-                    {
-                    CcspTraceInfo((" inside case 'c' bEngaged-pPsmSysRegistry\n"));
-#ifdef USE_PLATFORM_SPECIFIC_HAL
-                        if ( pPsmSysRegistry->hPsmCfmIf )
-                        {
-                            pPsmSysRegistry->hPsmCfmIf = (ANSC_HANDLE)NULL;
-                        }
-#endif
-                        pPsmSysRegistry->Cancel((ANSC_HANDLE)pPsmSysRegistry);
-                        pPsmSysRegistry->Remove((ANSC_HANDLE)pPsmSysRegistry);
-                    }
-
 
                     bEngaged = FALSE;
 
