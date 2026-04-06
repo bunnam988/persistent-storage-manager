@@ -76,6 +76,46 @@ PsmSsp_gtest_bin_LDADD = $(HOME)/usr/local/lib/libmock_ccsp_common.la \
                              $(HOME)/usr/local/lib/libmock_file_io.la \
                              $(HOME)/usr/local/lib/libmock_cjson.la
 
+# ---------------------------------------------------------------------------
+# Serverless library unit tests
+# Tests the psm_sqlite_* and PSM_Lib_* functions against a real SQLite DB.
+# Build with:  ./configure --enable-unitTestDockerSupport --enable-serverless
+# ---------------------------------------------------------------------------
+if PSM_SERVERLESS
+
+bin_PROGRAMS += PsmSqlite_gtest.bin
+
+PsmSqlite_gtest_bin_CPPFLAGS = \
+    -I$(PKG_CONFIG_SYSROOT_DIR)$(includedir)/gtest \
+    -I${top_srcdir}/gtest/include \
+    -I${top_srcdir}/source/include \
+    -I${top_srcdir}/source/PsmSqlite
+
+PsmSqlite_gtest_bin_CFLAGS   = $(SQLITE3_CFLAGS) $(OPENSSL_CFLAGS)
+PsmSqlite_gtest_bin_CXXFLAGS = -std=c++11 $(SQLITE3_CFLAGS) $(OPENSSL_CFLAGS)
+
+PsmSqlite_gtest_bin_SOURCES = \
+    gtest_main.cpp \
+    psm_sqlite_test.cpp \
+    psm_api_test.cpp \
+    $(top_srcdir)/source/PsmSqlite/psm_sqlite.c \
+    $(top_srcdir)/source/PsmSqlite/psm_migrate.c \
+    $(top_srcdir)/source/PsmApi/psm_api.c \
+    $(top_srcdir)/source/Ssp/psm_hal_apis.c
+
+PsmSqlite_gtest_bin_LDFLAGS = \
+    -lgtest \
+    -lgcov \
+    -lz \
+    -lpthread \
+    -lsyscfg \
+    -lcjson \
+    $(SQLITE3_LIBS) \
+    $(OPENSSL_LIBS) \
+    --coverage
+
+endif # PSM_SERVERLESS
+
 # Adding Code Coverage Flags
 AM_CFLAGS += -fprofile-arcs -ftest-coverage
 AM_CXXFLAGS += -fprofile-arcs -ftest-coverage

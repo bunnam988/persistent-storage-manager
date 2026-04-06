@@ -22,6 +22,67 @@ else
 
 ACLOCAL_AMFLAGS = -I m4
 
+# ---------------------------------------------------------------------------
+# Serverless library build  (./configure --enable-serverless)
+# Produces:  libpsm.so / libpsm.a
+# Does NOT build the PsmSsp daemon.
+# ---------------------------------------------------------------------------
+if PSM_SERVERLESS
+
+lib_LTLIBRARIES = libpsm.la
+
+libpsm_la_CPPFLAGS = \
+    -I$(top_srcdir)/source/include \
+    -I$(top_srcdir)/source/PsmSqlite
+
+libpsm_la_CFLAGS = \
+    -DPSM_SERVERLESS \
+    $(OPENSSL_CFLAGS)
+
+if USE_SYSTEM_SQLITE3
+libpsm_la_CFLAGS  += $(SQLITE3_CFLAGS)
+else
+libpsm_la_CFLAGS  += -DPSM_BUNDLED_SQLITE3
+endif
+
+libpsm_la_SOURCES = \
+    PsmSqlite/psm_sqlite.c \
+    PsmSqlite/psm_migrate.c \
+    PsmApi/psm_api.c \
+    Ssp/psm_hal_apis.c
+
+if !USE_SYSTEM_SQLITE3
+# When sqlite3 is not found on the system, include the amalgamation.
+# Place sqlite3.c and sqlite3.h in source/PsmSqlite/ before building.
+libpsm_la_SOURCES += PsmSqlite/sqlite3.c
+endif
+
+libpsm_la_LDFLAGS = \
+    -version-info 1:0:0 \
+    -lz \
+    -lpthread \
+    -lsyscfg \
+    -lcjson \
+    $(OPENSSL_LIBS)
+
+if USE_SYSTEM_SQLITE3
+libpsm_la_LDFLAGS += $(SQLITE3_LIBS)
+endif
+
+if IS_LIBRDKCONFIG_ENABLED
+libpsm_la_CFLAGS  += $(LIBRDKCONFIG_FLAG)
+libpsm_la_LDFLAGS += -lrdkconfig
+endif
+
+# Install the public header so consumers can #include <psm_api.h>
+pkginclude_HEADERS = include/psm_api.h
+
+else
+# ---------------------------------------------------------------------------
+# Original daemon build  (./configure  — default)
+# Produces:  PsmSsp binary
+# ---------------------------------------------------------------------------
+
 bin_PROGRAMS = PsmSsp
 
 PsmSsp_CPPFLAGS = \
@@ -54,7 +115,9 @@ PsmSsp_SOURCES = \
 PsmSsp_LDFLAGS = -lccsp_common $(SYSTEMD_LDFLAGS) -lsyscfg -lutapi -lutctx -lprivilege -lrbus -lcjson -lsecure_wrapper -lpthread
 
 if IS_LIBRDKCONFIG_ENABLED
-PsmSsp_CFLAGS += $(LIBRDKCONFIG_FLAG)
+PsmSsp_CFLAGS  += $(LIBRDKCONFIG_FLAG)
 PsmSsp_LDFLAGS += -lrdkconfig
 endif
-endif
+
+endif # PSM_SERVERLESS
+endif # UNIT_TEST_DOCKER_SUPPORT
