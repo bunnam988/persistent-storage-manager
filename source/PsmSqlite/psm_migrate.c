@@ -44,7 +44,6 @@
 #include "psm_sqlite.h"
 #include "psm_migrate.h"
 #include "psm_hal_apis.h"
-#include "psm_properties.h"
 
 /* --------------------------------------------------------------------------
  * Logging

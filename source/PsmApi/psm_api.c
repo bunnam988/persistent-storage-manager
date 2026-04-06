@@ -39,13 +39,12 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <openssl/des.h>
+#include <openssl/evp.h>
 
 #include "psm_api.h"
 #include "psm_sqlite.h"
 #include "psm_migrate.h"
 #include "psm_hal_apis.h"
-#include "psm_properties.h"
 
 /* --------------------------------------------------------------------------
  * Logging
@@ -189,27 +188,29 @@ static int des_decrypt(const char *in, int in_size,
                        char **out, int *out_size,
                        const char *key_buf)
 {
-    DES_cblock       key_cb;
-    DES_cblock       iv_cb;
-    DES_key_schedule ks;
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) return -1;
 
-    memcpy(key_cb, key_buf,                PSM_DES_KEY_SIZE);
-    memcpy(iv_cb,  key_buf + PSM_DES_KEY_SIZE, PSM_DES_IV_SIZE);
+    char *buf = malloc((size_t)in_size + EVP_MAX_BLOCK_LENGTH);
+    if (!buf) { EVP_CIPHER_CTX_free(ctx); return -1; }
 
-    if (DES_set_key_checked(&key_cb, &ks) != 0) {
-        PSM_ERR("DES_set_key_checked failed");
+    int outl = 0, outl2 = 0;
+    if (EVP_DecryptInit_ex(ctx, EVP_des_cbc(), NULL,
+                           (const unsigned char *)key_buf,
+                           (const unsigned char *)(key_buf + PSM_DES_KEY_SIZE)) != 1 ||
+        EVP_CIPHER_CTX_set_padding(ctx, 0) != 1 ||
+        EVP_DecryptUpdate(ctx, (unsigned char *)buf, &outl,
+                          (const unsigned char *)in, in_size) != 1 ||
+        EVP_DecryptFinal_ex(ctx, (unsigned char *)buf + outl, &outl2) != 1) {
+        PSM_ERR("des_decrypt: EVP decrypt failed");
+        free(buf);
+        EVP_CIPHER_CTX_free(ctx);
         return -1;
     }
 
-    char *buf = malloc((size_t)in_size + 8);
-    if (!buf) return -1;
-
-    DES_cbc_encrypt((const unsigned char *)in,
-                    (unsigned char *)buf,
-                    in_size, &ks, &iv_cb, DES_DECRYPT);
-
+    EVP_CIPHER_CTX_free(ctx);
     *out      = buf;
-    *out_size = in_size;
+    *out_size = outl + outl2;
     return 0;
 }
 
@@ -217,31 +218,38 @@ static int des_encrypt(const char *in, int in_size,
                        char **out, int *out_size,
                        const char *key_buf)
 {
-    DES_cblock       key_cb;
-    DES_cblock       iv_cb;
-    DES_key_schedule ks;
-
-    memcpy(key_cb, key_buf,                PSM_DES_KEY_SIZE);
-    memcpy(iv_cb,  key_buf + PSM_DES_KEY_SIZE, PSM_DES_IV_SIZE);
-
-    if (DES_set_key_checked(&key_cb, &ks) != 0)
-        return -1;
-
     /* Pad input to a DES block boundary. */
-    int pad = 8 - (in_size % 8);
+    int pad    = 8 - (in_size % 8);
     if (pad == 8) pad = 0;
     int padded = in_size + pad;
 
-    char *buf = calloc(1, (size_t)padded + 8);
-    if (!buf) return -1;
+    char *inbuf = calloc(1, (size_t)padded);
+    if (!inbuf) return -1;
+    memcpy(inbuf, in, in_size);
 
-    memcpy(buf, in, in_size);
-    DES_cbc_encrypt((const unsigned char *)buf,
-                    (unsigned char *)buf,
-                    padded, &ks, &iv_cb, DES_ENCRYPT);
+    char *buf = malloc((size_t)padded + EVP_MAX_BLOCK_LENGTH);
+    if (!buf) { free(inbuf); return -1; }
 
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) { free(inbuf); free(buf); return -1; }
+
+    int outl = 0, outl2 = 0;
+    if (EVP_EncryptInit_ex(ctx, EVP_des_cbc(), NULL,
+                           (const unsigned char *)key_buf,
+                           (const unsigned char *)(key_buf + PSM_DES_KEY_SIZE)) != 1 ||
+        EVP_CIPHER_CTX_set_padding(ctx, 0) != 1 ||
+        EVP_EncryptUpdate(ctx, (unsigned char *)buf, &outl,
+                          (const unsigned char *)inbuf, padded) != 1 ||
+        EVP_EncryptFinal_ex(ctx, (unsigned char *)buf + outl, &outl2) != 1) {
+        free(inbuf); free(buf);
+        EVP_CIPHER_CTX_free(ctx);
+        return -1;
+    }
+
+    EVP_CIPHER_CTX_free(ctx);
+    free(inbuf);
     *out      = buf;
-    *out_size = padded;
+    *out_size = outl + outl2;
     return 0;
 }
 
