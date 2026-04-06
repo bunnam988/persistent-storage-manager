@@ -31,6 +31,15 @@
 #ifndef PSM_MIGRATE_H
 #define PSM_MIGRATE_H
 
+/* Default factory config file location (mirrors psm_properties.h values,
+ * but without pulling in the ANSC framework headers). */
+#ifndef PSM_DEF_SYS_FILE_PATH
+#define PSM_DEF_SYS_FILE_PATH   "/psm/config/"
+#endif
+#ifndef PSM_DEF_DEF_FILE_NAME
+#define PSM_DEF_DEF_FILE_NAME   "psm_def_cfg.xml.gz"
+#endif
+
 /**
  * psm_migrate_init - run the full first-boot migration sequence.
  *
